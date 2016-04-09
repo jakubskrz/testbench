@@ -15,37 +15,10 @@ $findVendor = function ($dirName = 'vendor/bin', $dir = __DIR__) use (&$findVend
 $vendorDir = $findVendor();
 $testsDir = dirname($vendorDir) . '/tests';
 
-$position = $_SERVER['argc'] - 1;
-if ($position === 0) {
-	$_SERVER['argv'][++$position] = $testsDir;
-}
-$_SERVER['argv'][++$position] = '-s';
-$_SERVER['argv'][++$position] = '-p';
-$_SERVER['argv'][++$position] = 'php';
-$_SERVER['argv'][++$position] = '-c';
+require __DIR__ . '/Runner.php';
+$script = array_shift($_SERVER['argv']);
+$_SERVER['argv'] = (new \Testbench\Runner)->prepareArguments($_SERVER['argv'], $testsDir);
+array_unshift($_SERVER['argv'], $script);
 
-$os = stristr(PHP_OS, 'LINUX') ? 'unix' : 'win';
-$_SERVER['argv'][++$position] = $testsDir . "/php-$os.ini";
-
-// $_SERVER['argv'][++$position] = '--coverage';
-// $_SERVER['argv'][++$position] = 'coverage.html';
-// $_SERVER['argv'][++$position] = '--coverage-src';
-// $_SERVER['argv'][++$position] = './../app';
-
-$dir = $testsDir . '/_temp';
-
-if (!is_dir($dir)) {
-	mkdir($dir);
-}
-
-$rdi = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
-$rii = new \RecursiveIteratorIterator($rdi, \RecursiveIteratorIterator::CHILD_FIRST);
-foreach ($rii as $entry) {
-	if ($entry->isDir()) {
-		rmdir($entry);
-	} else {
-		unlink($entry);
-	}
-}
-
+echo "TESTBENCH edition v2.1.4\n";
 require $vendorDir . '/nette/tester/src/tester.php';

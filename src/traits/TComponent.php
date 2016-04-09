@@ -4,36 +4,36 @@ namespace Testbench;
 
 use Nette\ComponentModel\IComponent;
 
+require_once __DIR__ . '/../Helpers.php';
+
 trait TComponent
 {
 
-	use TCompiledContainer;
+	private $__testbench_presenterMock;
 
-	private $_presenter;
-
-	private function attachToPresenter(IComponent $component, $name = NULL)
+	protected function attachToPresenter(IComponent $component, $name = NULL)
 	{
 		if ($name === NULL) {
 			if (!$name = $component->getName()) {
 				$name = $component->getReflection()->getShortName();
 			}
 		}
-		if (!$this->_presenter) {
-			$this->_presenter = $this->getService('Testbench\PresenterMock');
-			$container = $this->getContainer();
-			$container->callInjects($this->_presenter);
+		if (!$this->__testbench_presenterMock) {
+			$this->__testbench_presenterMock = __testbench_getService('Testbench\PresenterMock');
+			$container = \Testbench\ContainerFactory::create(FALSE);
+			$container->callInjects($this->__testbench_presenterMock);
 		}
-		$this->_presenter->onStartup[] = function (PresenterMock $presenter) use ($component, $name) {
+		$this->__testbench_presenterMock->onStartup[] = function (PresenterMock $presenter) use ($component, $name) {
 			try {
 				$presenter->removeComponent($component);
 			} catch (\Nette\InvalidArgumentException $exc) {
 			}
 			$presenter->addComponent($component, $name);
 		};
-		$this->_presenter->run(new ApplicationRequestMock);
+		$this->__testbench_presenterMock->run(new ApplicationRequestMock);
 	}
 
-	private function checkRenderOutput(IComponent $control, $expected)
+	protected function checkRenderOutput(IComponent $control, $expected)
 	{
 		if (!$control->getParent()) {
 			$this->attachToPresenter($control);

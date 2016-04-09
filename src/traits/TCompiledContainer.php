@@ -5,52 +5,41 @@ namespace Testbench;
 trait TCompiledContainer
 {
 
-	/** @var \Nette\DI\Container */
-	private $_container;
-
-	/**
-	 * @return \Nette\DI\Container
-	 */
-	private function getContainer()
+	/** @return \Nette\DI\Container */
+	protected function getContainer()
 	{
-		if ($this->_container === NULL) {
-			$this->_container = $this->createContainer();
+		return \Testbench\ContainerFactory::create(FALSE);
+	}
+
+	protected function getService($class)
+	{
+		return $this->getContainer()->getByType($class);
+	}
+
+	protected function refreshContainer()
+	{
+		return \Testbench\ContainerFactory::create(TRUE);
+	}
+
+	//FIXME: should be in TCompiledContainer?
+	protected function changeRunLevel($testSpeed = \Testbench::FINE)
+	{
+		if ((int)getenv('RUNLEVEL') < $testSpeed) {
+			\Tester\Environment::skip(
+				"Required runlevel '$testSpeed' but current runlevel is '" . (int)getenv('RUNLEVEL') . "' (higher runlevel means slower tests)\n" .
+				"You can run this test with environment variable: 'RUNLEVEL=$testSpeed vendor/bin/run-tests ...'\n"
+			);
 		}
-		return $this->_container;
 	}
 
-	private function getService($class)
+	protected function markTestAsSlow($really = TRUE)
 	{
-		$container = $this->getContainer();
-		return $container->getByType($class);
+		$this->changeRunLevel($really ? \Testbench::FINE : \Testbench::QUICK);
 	}
 
-	private function refreshContainer()
+	protected function markTestAsVerySlow($really = TRUE)
 	{
-		$this->_container = $this->createContainer();
-		return $this->_container;
-	}
-
-	/** @internal */
-	private function createContainer()
-	{
-		$configurator = new \Nette\Configurator();
-		$configurator->onCompile[] = function ($_, \Nette\DI\Compiler $compiler) {
-			$compiler->addExtension('testbench', new TestbenchExtension);
-			$consoleExtension = 'Kdyby\Console\DI\ConsoleExtension';
-			if (class_exists($consoleExtension) && isset($compiler->config['extensions']) && !isset($compiler->config['extensions']['console'])) {
-				$compiler->addExtension('console', new \Kdyby\Console\DI\ConsoleExtension);
-			}
-		};
-
-		$configurator->setTempDirectory(\Testbench\Bootstrap::$tempDir); // shared container for performance purposes
-		$configurator->setDebugMode(FALSE);
-
-		if (is_callable(\Testbench\Bootstrap::$onBeforeContainerCreate)) {
-			call_user_func_array(\Testbench\Bootstrap::$onBeforeContainerCreate, [$configurator]);
-		}
-
-		return $configurator->createContainer();
+		$this->changeRunLevel($really ? \Testbench::SLOW : \Testbench::QUICK);
 	}
 
 }

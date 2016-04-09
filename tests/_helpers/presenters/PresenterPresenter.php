@@ -57,7 +57,7 @@ class PresenterPresenter extends Nette\Application\UI\Presenter
 	protected function createComponentForm1()
 	{
 		$form = new \Nette\Application\UI\Form();
-		$form->addText('test');
+		$form->addText('test')->setRequired();
 		$form->onSuccess[] = function ($_, $values) {
 			$this->flashMessage(json_encode($values));
 			$this->redirect('this');
@@ -97,6 +97,17 @@ class PresenterPresenter extends Nette\Application\UI\Presenter
 			} else {
 				$this->redirect('json');
 			}
+		};
+		return $form;
+	}
+
+	protected function createComponentCsrfForm()
+	{
+		$form = new \Nette\Application\UI\Form();
+		$form->addProtection('CSRF protection applied!');
+		$form->addText('test');
+		$form->onSuccess[] = function ($_, $values) {
+			$this->redirect('this');
 		};
 		return $form;
 	}

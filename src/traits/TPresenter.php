@@ -7,16 +7,14 @@ use Tester\Assert;
 trait TPresenter
 {
 
-	use TCompiledContainer;
-
 	/** @var \Nette\Application\IPresenter */
-	private $_presenter;
+	private $__testbench_presenter;
 
-	private $_httpCode;
+	private $__testbench_httpCode;
 
-	private $_exception;
+	private $__testbench_exception;
 
-	private $_ajaxMode = FALSE;
+	private $__testbench_ajaxMode = FALSE;
 
 	/**
 	 * @param string $destination
@@ -26,25 +24,30 @@ trait TPresenter
 	 * @return \Nette\Application\IResponse
 	 * @throws \Exception
 	 */
-	private function check($destination, $params = [], $post = [])
+	protected function check($destination, $params = [], $post = [])
 	{
 		$destination = ltrim($destination, ':');
 		$pos = strrpos($destination, ':');
 		$presenter = substr($destination, 0, $pos);
 		$action = substr($destination, $pos + 1) ?: 'default';
 
-		if (!$this->_presenter) {
-			$container = $this->getContainer();
-			$container->removeService('httpRequest');
-			$headers = $this->_ajaxMode ? ['X-Requested-With' => 'XMLHttpRequest'] : [];
-			$container->addService('httpRequest', new HttpRequestMock(NULL, NULL, [], [], [], $headers));
-			$presenterFactory = $container->getByType('Nette\Application\IPresenterFactory');
-			$class = $presenterFactory->getPresenterClass($presenter);
-			$this->_presenter = $container->createInstance($class);
-			$this->_presenter->autoCanonicalize = FALSE;
-			$this->_presenter->invalidLinkMode = \Nette\Application\UI\Presenter::INVALID_LINK_EXCEPTION;
-			$container->callInjects($this->_presenter);
-		}
+		$container = \Testbench\ContainerFactory::create(FALSE);
+		$container->removeService('httpRequest');
+		$headers = $this->__testbench_ajaxMode ? ['X-Requested-With' => 'XMLHttpRequest'] : [];
+		$container->addService('httpRequest', new HttpRequestMock(NULL, NULL, [], [], [], $headers));
+		$presenterFactory = $container->getByType('Nette\Application\IPresenterFactory');
+		$class = $presenterFactory->getPresenterClass($presenter);
+		$this->__testbench_presenter = $container->createInstance($class);
+		$this->__testbench_presenter->autoCanonicalize = FALSE;
+		$this->__testbench_presenter->invalidLinkMode = \Nette\Application\UI\Presenter::INVALID_LINK_EXCEPTION;
+		$container->callInjects($this->__testbench_presenter);
+
+		/** @var \Kdyby\FakeSession\Session $session */
+		$session = $this->__testbench_presenter->getSession();
+		$session->setFakeId('testbench.fakeId');
+		$session->getSection('Nette\Forms\Controls\CsrfProtection')->token = 'testbench.fakeToken';
+		$post = $post + ['_token_' => 'goVdCQ1jk0UQuVArz15RzkW6vpDU9YqTRILjE=']; //CSRF magic! ¯\_(ツ)_/¯
+
 		$request = new ApplicationRequestMock(
 			$presenter,
 			$post ? 'POST' : 'GET',
@@ -52,12 +55,12 @@ trait TPresenter
 			$post
 		);
 		try {
-			$this->_httpCode = 200;
-			$response = $this->_presenter->run($request);
+			$this->__testbench_httpCode = 200;
+			$response = $this->__testbench_presenter->run($request);
 			return $response;
 		} catch (\Exception $exc) {
-			$this->_exception = $exc;
-			$this->_httpCode = $exc->getCode();
+			$this->__testbench_exception = $exc;
+			$this->__testbench_httpCode = $exc->getCode();
 			throw $exc;
 		}
 	}
@@ -70,11 +73,11 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\TextResponse
 	 * @throws \Exception
 	 */
-	private function checkAction($destination, $params = [], $post = [])
+	protected function checkAction($destination, $params = [], $post = [])
 	{
 		/** @var \Nette\Application\Responses\TextResponse $response */
 		$response = $this->check($destination, $params, $post);
-		if (!$this->_exception) {
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\TextResponse', $response);
 			Assert::type('Nette\Application\UI\ITemplate', $response->getSource());
@@ -95,7 +98,7 @@ trait TPresenter
 	 *
 	 * @return \Nette\Application\IResponse
 	 */
-	private function checkSignal($destination, $signal, $params = [], $post = [])
+	protected function checkSignal($destination, $signal, $params = [], $post = [])
 	{
 		return $this->checkRedirect($destination, '/', [
 				'do' => $signal,
@@ -111,11 +114,11 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\RedirectResponse
 	 * @throws \Exception
 	 */
-	private function checkRedirect($destination, $path = '/', $params = [], $post = [])
+	protected function checkRedirect($destination, $path = '/', $params = [], $post = [])
 	{
 		/** @var \Nette\Application\Responses\RedirectResponse $response */
 		$response = $this->check($destination, $params, $post);
-		if (!$this->_exception) {
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\RedirectResponse', $response);
 			Assert::same(302, $response->getCode());
@@ -132,11 +135,11 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\JsonResponse
 	 * @throws \Exception
 	 */
-	private function checkJson($destination, $params = [], $post = [])
+	protected function checkJson($destination, $params = [], $post = [])
 	{
 		/** @var \Nette\Application\Responses\JsonResponse $response */
 		$response = $this->check($destination, $params, $post);
-		if (!$this->_exception) {
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\JsonResponse', $response);
 			Assert::same('application/json', $response->getContentType());
@@ -153,7 +156,7 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\RedirectResponse
 	 * @throws \Tester\AssertException
 	 */
-	private function checkForm($destination, $formName, $post = [], $path = '/')
+	protected function checkForm($destination, $formName, $post = [], $path = '/')
 	{
 		if (is_string($path)) {
 			return $this->checkRedirect($destination, $path, [
@@ -164,7 +167,7 @@ trait TPresenter
 			$response = $this->check($destination, [
 				'do' => $formName . '-submit',
 			], $post);
-			if (!$this->_exception) {
+			if (!$this->__testbench_exception) {
 				Assert::same(200, $this->getReturnCode());
 				Assert::type('Nette\Application\Responses\TextResponse', $response);
 			}
@@ -174,24 +177,24 @@ trait TPresenter
 		}
 	}
 
-	private function checkAjaxForm($destination, $formName, $post = [], $path = FALSE)
+	protected function checkAjaxForm($destination, $formName, $post = [], $path = FALSE)
 	{
 		if (is_string($path)) {
 			$this->checkForm($destination, $formName, $post, $path);
-			Assert::false($this->_presenter->isAjax());
+			Assert::false($this->__testbench_presenter->isAjax());
 		}
-		$this->_presenter = NULL; //FIXME: not very nice, but performance first
-		$this->_ajaxMode = TRUE;
+		$this->__testbench_presenter = NULL; //FIXME: not very nice, but performance first
+		$this->__testbench_ajaxMode = TRUE;
 		$response = $this->check($destination, [
 			'do' => $formName . '-submit',
 		], $post);
-		Assert::true($this->_presenter->isAjax());
-		if (!$this->_exception) {
+		Assert::true($this->__testbench_presenter->isAjax());
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\JsonResponse', $response);
 		}
-		$this->_presenter = NULL;
-		$this->_ajaxMode = FALSE;
+		$this->__testbench_presenter = NULL;
+		$this->__testbench_ajaxMode = FALSE;
 		return $response;
 	}
 
@@ -203,11 +206,11 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\TextResponse
 	 * @throws \Exception
 	 */
-	private function checkRss($destination, $params = [], $post = [])
+	protected function checkRss($destination, $params = [], $post = [])
 	{
 		/** @var \Nette\Application\Responses\TextResponse $response */
 		$response = $this->check($destination, $params, $post);
-		if (!$this->_exception) {
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\TextResponse', $response);
 			Assert::type('Nette\Application\UI\ITemplate', $response->getSource());
@@ -230,11 +233,11 @@ trait TPresenter
 	 * @return \Nette\Application\Responses\TextResponse
 	 * @throws \Exception
 	 */
-	private function checkSitemap($destination, $params = [], $post = [])
+	protected function checkSitemap($destination, $params = [], $post = [])
 	{
 		/** @var \Nette\Application\Responses\TextResponse $response */
 		$response = $this->check($destination, $params, $post);
-		if (!$this->_exception) {
+		if (!$this->__testbench_exception) {
 			Assert::same(200, $this->getReturnCode());
 			Assert::type('Nette\Application\Responses\TextResponse', $response);
 			Assert::type('Nette\Application\UI\ITemplate', $response->getSource());
@@ -248,17 +251,21 @@ trait TPresenter
 	}
 
 	/**
-	 * @param integer $id
-	 * @param null $roles
-	 * @param null $data
+	 * @param \Nette\Security\IIdentity|integer $id
+	 * @param array|null $roles
+	 * @param array|null $data
 	 *
 	 * @return \Nette\Security\User
 	 */
-	private function logIn($id = 1, $roles = NULL, $data = NULL)
+	protected function logIn($id = 1, $roles = NULL, $data = NULL)
 	{
-		$identity = new \Nette\Security\Identity($id, $roles, $data);
+		if ($id instanceof \Nette\Security\IIdentity) {
+			$identity = $id;
+		} else {
+			$identity = new \Nette\Security\Identity($id, $roles, $data);
+		}
 		/** @var \Nette\Security\User $user */
-		$user = $this->getContainer()->getByType('Nette\Security\User');
+		$user = \Testbench\ContainerFactory::create(FALSE)->getByType('Nette\Security\User');
 		$user->login($identity);
 		return $user;
 	}
@@ -266,10 +273,10 @@ trait TPresenter
 	/**
 	 * @return \Nette\Security\User
 	 */
-	private function logOut()
+	protected function logOut()
 	{
 		/** @var \Nette\Security\User $user */
-		$user = $this->getContainer()->getByType('Nette\Security\User');
+		$user = \Testbench\ContainerFactory::create(FALSE)->getByType('Nette\Security\User');
 		$user->logout();
 		return $user;
 	}
@@ -277,25 +284,25 @@ trait TPresenter
 	/**
 	 * @return \Nette\Application\UI\Presenter
 	 */
-	private function getPresenter()
+	protected function getPresenter()
 	{
-		return $this->_presenter;
+		return $this->__testbench_presenter;
 	}
 
 	/**
 	 * @return integer
 	 */
-	private function getReturnCode()
+	protected function getReturnCode()
 	{
-		return $this->_httpCode;
+		return $this->__testbench_httpCode;
 	}
 
 	/**
 	 * @return \Exception
 	 */
-	private function getException()
+	protected function getException()
 	{
-		return $this->_exception;
+		return $this->__testbench_exception;
 	}
 
 }

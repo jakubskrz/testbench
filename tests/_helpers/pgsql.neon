@@ -1,0 +1,20 @@
+database:
+	dsn: 'pgsql:host=127.0.0.1;dbname=testbench_initial'
+	user: postgres
+	password: ''
+	options: [PDO::MYSQL_ATTR_COMPRESS = true]
+
+
+doctrine:
+	metadata:
+		App: %appDir%
+	driver: pdo_pgsql
+	user: postgres
+	password: ''
+	dbname: testbench_initial
+
+
+testbench:
+	sqls:
+		- %testsDir%/_helpers/sqls/pgsql_1.sql
+		- %testsDir%/_helpers/sqls/pgsql_2.sql
